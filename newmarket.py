@@ -1850,6 +1850,37 @@ def packages_keyboard(product_type: str) -> types.InlineKeyboardMarkup:
     markup.add(types.InlineKeyboardButton("◀️ BACK", callback_data="back_main"))
     return markup
 
+def ig_keyboard() -> types.InlineKeyboardMarkup:
+    """Simple keyboard for IG packages"""
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    symbol = get_setting('currency_symbol', '₦')
+    c = db.cursor()
+    
+    c.execute("SELECT rule_name, min_value, max_value, price FROM pricing_rules WHERE is_active = 1 ORDER BY min_value")
+    rules = c.fetchall()
+    
+    for rule in rules:
+        rule_name, min_val, max_val, price = rule
+        
+        if max_val and max_val > 0:
+            label = f"{min_val}-{max_val}"
+        else:
+            label = f"{min_val}+"
+        
+        if max_val and max_val > 0:
+            c.execute("SELECT COUNT(*) FROM ig_stock WHERE followers_count BETWEEN ? AND ? AND status='available'", (min_val, max_val))
+        else:
+            c.execute("SELECT COUNT(*) FROM ig_stock WHERE followers_count >= ? AND status='available'", (min_val,))
+        
+        stock_count = c.fetchone()[0]
+        stock_icon = "✅" if stock_count > 0 else "❌"
+        
+        display = f"🔗 {label} followers - {symbol}{price:,.0f} [{stock_count} in stock] {stock_icon}"
+        markup.add(types.InlineKeyboardButton(display, callback_data=f"buy_ig_{min_val}"))
+    
+    markup.add(types.InlineKeyboardButton("◀️ BACK", callback_data="back_main"))
+    return markup
+
 # =================================================================================
 # MISSING KEYBOARD FUNCTIONS - ADD THESE
 # =================================================================================
@@ -4570,7 +4601,7 @@ def handle_message(message):
     elif text == "🛍 BUY FOLLOWERS":
         bot.reply_to(message, "📸 **HOW MANY FOLLOWERS DO YOU WANT?**\n\nSelect an option below:", parse_mode='HTML', reply_markup=followers_amount_keyboard())
     elif text == "🔗 BUY IG":
-        bot.reply_to(message, "🔗 **SELECT IG PACKAGE:**", parse_mode='HTML', reply_markup=packages_keyboard("email"))
+        bot.reply_to(message, "🔗 **SELECT IG PACKAGE:**", parse_mode='HTML', reply_markup=ig_keyboard())
     elif text == "🔗 BUY IG LINK":
         bot.reply_to(message, "🔗 **SELECT IG LINK PACKAGE:**", parse_mode='HTML', reply_markup=packages_keyboard("ig"))
     elif text == "📦 BUY BULK":
