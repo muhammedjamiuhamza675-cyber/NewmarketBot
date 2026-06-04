@@ -1964,15 +1964,22 @@ def stock_delete_keyboard() -> types.InlineKeyboardMarkup:
 
 def ig_type_keyboard(followers: int, price: float) -> types.InlineKeyboardMarkup:
     markup = types.InlineKeyboardMarkup(row_width=1)
-    ig_only_stock = get_ig_stock_count(followers)
-    ig_with_pass_stock = get_ig_stock_count(followers, require_password=True)
-    extra_percent = int(get_setting('ig_password_extra', '30'))
-    price_with_pass = price * (1 + extra_percent / 100)
     symbol = get_setting('currency_symbol', '₦')
+    c = db.cursor()
+    
+    # Check email_stock (where your IG accounts are)
+    c.execute("SELECT COUNT(*) FROM email_stock WHERE followers_count = ? AND status = 'available'", (followers,))
+    email_only_stock = c.fetchone()[0]
+    
+    c.execute("SELECT COUNT(*) FROM email_stock WHERE followers_count = ? AND has_password = 1 AND status = 'available'", (followers,))
+    email_with_pass_stock = c.fetchone()[0]
+    
+    extra_percent = int(get_setting('email_password_extra', '30'))
+    price_with_pass = price * (1 + extra_percent / 100)
     
     markup.add(
-        types.InlineKeyboardButton(f"🔗 IG Only - {symbol}{price:,.0f} ({ig_only_stock} in stock)", callback_data=f"buy_ig_type_{followers}_{price}_only"),
-        types.InlineKeyboardButton(f"🔐 IG + Password - {symbol}{price_with_pass:,.0f} ({ig_with_pass_stock} in stock)", callback_data=f"buy_ig_type_{followers}_{price_with_pass}_withpass"),
+        types.InlineKeyboardButton(f"📧 Email Only - {symbol}{price:,.0f} ({email_only_stock} in stock)", callback_data=f"buy_email_type_{followers}_{price}_only"),
+        types.InlineKeyboardButton(f"🔐 Email + Password - {symbol}{price_with_pass:,.0f} ({email_with_pass_stock} in stock)", callback_data=f"buy_email_type_{followers}_{price_with_pass}_withpass"),
         types.InlineKeyboardButton("◀️ BACK", callback_data="back_main")
     )
     return markup
