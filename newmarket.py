@@ -1800,42 +1800,52 @@ def packages_keyboard(product_type: str) -> types.InlineKeyboardMarkup:
         price = rule['price']
         rule_type = rule['rule_type']
         
+        # Create label based on rule type
+        if rule_type == 'range' and max_val:
+            label = f"{min_val}-{max_val}"
+        elif rule_type == 'min':
+            label = f"{min_val}+"
+        else:
+            label = str(min_val)
+        
+        # Check stock based on product type
+        stock_count = 0
         if product_type == "email":
             if rule_type == 'range' and max_val:
                 c.execute("SELECT COUNT(*) FROM email_stock WHERE followers_count BETWEEN ? AND ? AND status = 'available'", (min_val, max_val))
-                label = f"{min_val}-{max_val}"
             elif rule_type == 'min':
                 c.execute("SELECT COUNT(*) FROM email_stock WHERE followers_count >= ? AND status = 'available'", (min_val,))
-                label = f"{min_val}+"
             else:
                 c.execute("SELECT COUNT(*) FROM email_stock WHERE followers_count = ? AND status = 'available'", (min_val,))
-                label = str(min_val)
-            
             stock_count = c.fetchone()[0]
-            stock_icon = "✅" if stock_count > 0 else "❌"
-            display = f"📧 {label} followers - {symbol}{price:,.0f} [{stock_count} in stock] {stock_icon}"
-            markup.add(types.InlineKeyboardButton(display, callback_data=f"buy_email_{min_val}"))
-    
-    markup.add(types.InlineKeyboardButton("◀️ BACK", callback_data="back_main"))
-    return markup
-def followers_amount_keyboard() -> types.InlineKeyboardMarkup:
-    """Keyboard for buying followers by amount"""
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    rules = PricingEngine.get_all_rules(active_only=True)
-    symbol = get_setting('currency_symbol', '₦')
-    
-    for rule in rules[:12]:
-        if rule['rule_type'] == 'range':
-            label = f"{rule['min_value']}-{rule['max_value']}"
-        elif rule['rule_type'] == 'min':
-            label = f"{rule['min_value']}+"
-        else:
-            label = str(rule['min_value'])
+        elif product_type == "ig":
+            if rule_type == 'range' and max_val:
+                c.execute("SELECT COUNT(*) FROM ig_stock WHERE followers_count BETWEEN ? AND ? AND status = 'available'", (min_val, max_val))
+            elif rule_type == 'min':
+                c.execute("SELECT COUNT(*) FROM ig_stock WHERE followers_count >= ? AND status = 'available'", (min_val,))
+            else:
+                c.execute("SELECT COUNT(*) FROM ig_stock WHERE followers_count = ? AND status = 'available'", (min_val,))
+            stock_count = c.fetchone()[0]
+        elif product_type == "bulk":
+            c.execute("SELECT COUNT(*) FROM bulk_stock WHERE followers_per_email = ? AND status = 'available'", (min_val,))
+            stock_count = c.fetchone()[0]
         
-        markup.add(types.InlineKeyboardButton(
-            f"📸 {label} followers - {symbol}{rule['price']:,.0f}",
-            callback_data=f"buy_followers_{rule['min_value']}"
-        ))
+        stock_icon = "✅" if stock_count > 0 else "❌"
+        
+        # Choose emoji based on product type
+        emoji = "📧" if product_type == "email" else "🔗" if product_type == "ig" else "📦"
+        
+        display = f"{emoji} {label} followers - {symbol}{price:,.0f} [{stock_count} in stock] {stock_icon}"
+        
+        # Callback data
+        if product_type == "email":
+            callback = f"buy_email_{min_val}"
+        elif product_type == "ig":
+            callback = f"buy_ig_{min_val}"
+        else:
+            callback = f"buy_bulk_{min_val}"
+        
+        markup.add(types.InlineKeyboardButton(display, callback_data=callback))
     
     markup.add(types.InlineKeyboardButton("◀️ BACK", callback_data="back_main"))
     return markup
